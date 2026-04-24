@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.extension.zh.bakamh.BakamhPreferences.preferenceMigra
 import eu.kanade.tachiyomi.multisrc.madara.Madara
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import eu.kanade.tachiyomi.source.ConfigurableSource
+import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.util.asJsoup
@@ -14,6 +15,7 @@ import keiyoushi.lib.randomua.setRandomUserAgent
 import keiyoushi.utils.getPreferences
 import okhttp3.Headers
 import okhttp3.Response
+import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -84,4 +86,29 @@ class Bakamh :
                 }
             }
     }
+
+    // 覆盖图片列表解析逻辑
+    override fun pageListParse(document: Document): List<Page> {
+        // 针对该站点的 img.wp-manga-chapter-img 标签进行解析
+        return document.select("img.wp-manga-chapter-img").mapIndexed { i, element ->
+            // 优先获取 data-manga-src，如果没有则获取 src
+            // 关键点：必须调用 .trim() 去掉开头和结尾的空格
+            val imageUrl = element.attr("data-manga-src")
+                .ifEmpty { element.attr("src") }
+                .trim()
+
+            Page(i, document.location(), imageUrl)
+        }
+    }
+
+    // 禁用基类的图片从元素解析逻辑，防止冲突
+    override fun imageFromElement(element: Element): String {
+        // 尝试获取 data-manga-src，如果为空则获取 src，并去掉首尾空格
+        val imageUrl = element.attr("data-manga-src")
+            .ifEmpty { element.attr("src") }
+            .trim()
+
+        return imageUrl
+    }
+
 }
